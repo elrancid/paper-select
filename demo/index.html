@@ -1,0 +1,134 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+
+  <title>paper-select demo</title>
+
+  <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+
+  <link rel="import" href="../../iron-demo-helpers/demo-pages-shared-styles.html">
+  <link rel="import" href="../../iron-demo-helpers/demo-snippet.html">
+  <link rel="import" href="../../iron-icon/iron-icon.html">
+  <link rel="import" href="../../iron-icons/iron-icons.html">
+  <link rel="import" href="../../iron-input/iron-input.html">
+  <link rel="import" href="../../paper-icon-button/paper-icon-button.html">
+  <link rel="import" href="../../paper-styles/color.html">
+  <link rel="import" href="../paper-select.html">
+  <link rel="import" href="../../paper-input/paper-input.html">
+
+  <style is="custom-style" include="demo-pages-shared-styles">
+    paper-input {
+      display: block;
+    }
+
+    demo-snippet.horizontal {
+      --demo-snippet-demo: {
+        @apply(--layout-horizontal);
+        @apply(--layout-justified);
+        @apply(--layout-wrap);
+      }
+    }
+    demo-snippet.horizontal paper-input {
+      display: inline-block;
+    }
+
+    button {
+      width: 70px;
+    }
+
+    #inputForValidation {
+      display: inline-block;
+      width: calc(100% - 75px);
+    }
+
+    .vertical-section-container {
+      max-width: 600px;
+    }
+
+    paper-icon-button {
+      color: var(--paper-red-300);
+      --paper-icon-button-ink-color: var(--paper-red-a100);
+      width: 23px; /* 15px + 2*4px for padding */
+      height: 23px;
+      padding: 0px 4px;
+    }
+
+    iron-icon {
+      padding-right: 5px;
+    }
+  </style>
+</head>
+<body unresolved>
+<div class="vertical-section-container centered">
+  <h3>The dropdown list is filtered by input value.</h3>
+  <demo-snippet>
+    <template>
+      <paper-select id="select" label="Number"></paper-select>
+<!--
+data = [
+  {value:1, label:'one'},
+  {value:2, label:'two'},
+  {value:3, label:'three'},
+  {value:4, label:'four'},
+  {value:5, label:'five'},
+  {value:6, label:'six'},
+  {value:7, label:'seven'},
+  {value:8, label:'eight'},
+  {value:9, label:'nine'},
+  {value:10, label:'ten'},
+  {value:11, label:'eleven'},
+  {value:12, label:'twelve'},
+  {value:13, label:'thirteen'},
+  {value:14, label:'fourteen'},
+  {value:15, label:'fifteen'},
+  {value:16, label:'sixteen'},
+  {value:17, label:'seventeen'},
+  {value:18, label:'eigteen'},
+  {value:19, label:'nineteen'},
+  {value:20, label:'twenty'}
+];
+-->
+    </template>
+  </demo-snippet>
+</div>
+<script>
+addEventListener('WebComponentsReady', function() {
+  var select = document.getElementById('select');
+  select.data = [
+    {value:1, label:'one'},
+    {value:2, label:'two'},
+    {value:3, label:'three'},
+    {value:4, label:'four'},
+    {value:5, label:'five'},
+    {value:6, label:'six'},
+    {value:7, label:'seven'},
+    {value:8, label:'eight'},
+    {value:9, label:'nine'},
+    {value:10, label:'ten'},
+    {value:11, label:'eleven'},
+    {value:12, label:'twelve'},
+    {value:13, label:'thirteen'},
+    {value:14, label:'fourteen'},
+    {value:15, label:'fifteen'},
+    {value:16, label:'sixteen'},
+    {value:17, label:'seventeen'},
+    {value:18, label:'eigteen'},
+    {value:19, label:'nineteen'},
+    {value:20, label:'twenty'}
+  ];
+});
+</script>
+</body>
+</html>

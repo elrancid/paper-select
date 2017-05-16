@@ -1,0 +1,711 @@
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-a11y-keys-behavior/iron-a11y-keys-behavior.html">
+<link rel="import" href="../iron-form-element-behavior/iron-form-element-behavior.html">
+<link rel="import" href="../iron-validatable-behavior/iron-validatable-behavior.html">
+<link rel="import" href="../iron-behaviors/iron-control-state.html">
+<link rel="import" href="../iron-dropdown/iron-dropdown-scroll-manager.html">
+
+<script>
+/** @polymerBehavior Polymer.PaperSelectBehavior */
+Polymer.PaperSelectBehaviorImpl = {
+
+  properties: {
+    /**
+     * Activate the debug console logs
+     */
+    debug: {
+      type: Boolean,
+      value: false
+    },
+    /**
+     * Activate the debug console logs for view
+     */
+    debugView: {
+      type: Boolean,
+      value: false
+    },
+    /**
+     * Activate the debug console logs for keys
+     */
+    debugKeys: {
+      type: Boolean,
+      value: false
+    },
+
+    /**
+     *
+     */
+    _isReady: {
+      type: Boolean,
+      value: false
+    },
+
+    /**
+     * The maximum length of the dava visualized in dropdown
+     */
+    maxViewLength: {
+      type: Number,
+      value: 100
+    },
+
+    /**
+     * The value of the field
+     */
+    value: {
+      type: String,
+      notify: true,
+      observer: '_valueChanged'
+    },
+
+    /**
+     * The string value in the input field associated with `value`.
+     */
+    valueLabel: {
+      type: String,
+      notify: true,
+      observer: '_valueLabelChanged'
+    },
+
+    /**
+     * The input field string
+     */
+    valueInput: {
+      type: String,
+      notify: true,
+      observer: '_valueInputChanged'
+    },
+
+    /**
+     * The label for this select.
+     */
+    label: {
+      type: String
+    },
+
+    /**
+     * Set to true to disable the floating label.
+     */
+    noLabelFloat: {
+      type: Boolean,
+      value: false
+    },
+
+    /**
+     * Set to true to disable the input.
+     */
+    disabled: {
+      type: Boolean,
+      value: false
+    },
+
+    /**
+     * Set to true to mark the input as required.
+     */
+    required: {
+      type: Boolean,
+      value: false
+    },
+
+    /**
+     * Set to true to auto-validate the input value.
+     */
+    autoValidate: {
+      type: Boolean,
+      value: false
+    },
+
+    /**
+     * Data to use in dropdown. It must be an array of objects.
+     * Every object must have the `value` and `label` properties,
+     * or the properties defined in `attrForValue` and `attrForLabel`.
+     */
+    data: {
+      type: Array,
+      value: [],
+      observer: '_dataChanged'
+    },
+    /**
+     * Data prepared for dropdown.
+     */
+    _dataDropdown: {
+      type: Array,
+      value: []
+    },
+    /**
+     * Data actually used in dropdown.
+     */
+    _dataView: {
+      type: Array,
+      value: []
+    },
+
+    /**
+     * The property of every data object to use for the form value.
+     * Default value: "value"
+     */
+    attrForValue: {
+      type: String
+    },
+    /**
+     * The property of every data object to use for the form label.
+     * Default value: "label"
+     */
+    attrForLabel: {
+      type: String
+    },
+
+    /**
+     * The index of the selected value in dropdown
+     */
+    _indexSelectedItem: {
+      type: Number,
+      value: 0,
+      observer: '_indexSelectedItemChanged'
+    },
+
+    /**
+     * Name of property to apply the fist filter on
+     */
+    filter: {
+      type: String,
+      observer: '_filterChanged'
+    },
+    /**
+     * Value of property to apply the fist filter on
+     */
+    filterValue: {
+      type: String,
+      observer: '_filterValueChanged'
+    },
+    /**
+     * Name of property to apply the second filter on
+     */
+    filter2: {
+      type: String,
+      observer: '_filter2Changed'
+    },
+    /**
+     * Value of property to apply the second filter on
+     */
+    filterValue2: {
+      type: String,
+      observer: '_filterValue2Changed'
+    },
+
+    /**
+     * Input focused
+     */
+    focused: {
+      type: Boolean,
+      observer: 'focusedChanged'
+    }
+  },
+  listeners: {
+    'keydown': '_onKeydown'
+  },
+
+  /**
+   * Called on keydown
+   */
+  _onKeydown: function(event) { // new
+    if (this.debugKeys) console.log(this.localName+'[behavior]._onKeydown() keyCode='+event.keyCode+' event:',event);
+    switch (event.keyCode) {
+      case 27: // ESCAPE
+        if (this.debugKeys) console.log(this.localName+'[behavior]._onKeydown() ESC... opened='+this.isDropdownOpened());
+        // TODO: fare in modo che il dropdown si apra se è chiuso
+  //        if (!this.isDropdownOpened()) this.toggleDropdown();
+  //        event.preventDefault();
+        break;
+      case 38: // UP
+        if (this.debugKeys) console.log(this.localName+'[behavior]._onKeydown() UP');
+        this.selectIndexItemUp();
+        break;
+      case 40: // DOWN
+        if (this.debugKeys) console.log(this.localName+'[behavior]._onKeydown() DOWN');
+        this.selectIndexItemDown();
+        break;
+      case 13: // ENTER
+        if (this.debugKeys) console.log(this.localName+'[behavior]._onKeypress() ENTER pressed');
+        if (this.debugKeys) console.log(this.localName+'[behavior]._onKeypress() dropdown.opened:',this.isDropdownOpened());
+        if (this.isDropdownOpened()) {
+          this._applySelectedIndexItem();
+        }
+        this.toggleDropdown();
+        event.preventDefault();
+        break;
+      case 9: // TAB
+        this.closeDropdown();
+        break;
+    }
+  },
+
+  /**
+   * Apply the selected item on dropdown
+   */
+  _applySelectedIndexItem: function() {
+    if (this.debug) console.log(this.localName+'[behavior]._applySelectedIndexItem() selected #'+this._indexSelectedItem+' element:',this._dataView[this._indexSelectedItem]);
+    let selectedObj = this._dataView[this._indexSelectedItem];
+    if (selectedObj)
+      this.value = selectedObj.value;
+    if (this.debug) console.log(this.localName+'[behavior]._applySelectedIndexItem() ... value='+this.value+'; valueLabel='+this.valueLabel+'; valueInput='+this.valueInput);
+  },
+
+  /**
+   * Select the previous item in dropdown.
+   */
+  selectIndexItemUp: function() {
+    let new_indexSelectedItem = this._indexSelectedItem - 1;
+    if (new_indexSelectedItem < 0) new_indexSelectedItem = this._dataView.length -1;
+    if (this._dataView[new_indexSelectedItem] && !this._dataView[new_indexSelectedItem].value) new_indexSelectedItem--;
+    if (new_indexSelectedItem < 0) new_indexSelectedItem = 0;
+    this._indexSelectedItem = new_indexSelectedItem;
+    this._updateMenuPosition();
+  },
+
+  /**
+   * Select the next item in dropdown.
+   */
+  selectIndexItemDown: function() {
+    let new_indexSelectedItem = this._indexSelectedItem + 1;
+    if (this._dataView[new_indexSelectedItem] && !this._dataView[new_indexSelectedItem].value) new_indexSelectedItem++;
+    if (new_indexSelectedItem >= this._dataView.length) new_indexSelectedItem = 0;
+    this._indexSelectedItem = new_indexSelectedItem;
+    this._updateMenuPosition();
+  },
+
+  /**
+   * Update the position of scroll menu in dropdown
+   */
+  _updateMenuPosition: function() {
+    let container = this.$.menuContainer;
+    container.scrollTop = ((container.scrollHeight - container.clientHeight + (this._dataView.length>200 ? 56 : 48)) / this._dataView.length) * this._indexSelectedItem;
+  },
+
+  /**
+   * Called on indexSelectedItem changed
+   */
+  _indexSelectedItemChanged: function(to, from) {
+    if (this.debug) console.log(this.localName+'[behavior]._indexSelectedItemChanged() to:'+to+'; selectedItem:',this.$.menu.selectedItem);
+    if (this.debugKeys) {
+      if (this.$.menu.selectedItem) {
+        console.log(this.localName+'[behavior]._indexSelectedItemChanged() to:'+to+'; selectedItem:',this.$.menu.selectedItem);
+        console.log(this.localName+'[behavior]._indexSelectedItemChanged() ...selectedItem.value:',this.$.menu.selectedItem.value);
+        console.log(this.localName+'[behavior]._indexSelectedItemChanged() ...selectedItem.label:',this.$.menu.selectedItem.label);
+      }
+      else {
+        console.log(this.localName+'[behavior]._indexSelectedItemChanged() to:'+to+'; NO selectedItem');
+      }
+//        console.log(this.localName+'[behavior]._indexSelectedItemChanged() to:'+to+'; _dataView:',this._dataView);
+//        console.log('selectedItem:',this.$.menu.selectedItem);
+    }
+    /* TODO...
+    if (this._onLostFocus) {
+      let selectedObj = this._dataView[this._indexSelectedItem];
+//          this._selected = true;
+      this.valueLabel = selectedObj.label;
+      this.valueInput = selectedObj.label;
+      this.value = selectedObj.value;
+      this._onLostFocus = false;
+      this.$.dropdown.close();
+    }
+    */
+  },
+
+  /**
+   * Called on input focus
+   */
+  _onInputFocus: function() {
+    if (this.debugKeys) console.log(this.localName+'[behavior]._onInputFocus()');
+    this.openDropdown();
+  },
+  /**
+   * Called on change of input focus
+   */
+  focusedChanged: function(focused) {
+    if (this.debug) console.log(this.localName+'[behavior].focusedChanged() //////////////// focused:',focused,'value:',this.value);
+    if (focused) {
+      // Seleziono tutto il testo
+      if (this.debug) console.log(this.localName+'[behavior].focusedChanged() valueInput:',this.valueInput);
+      if (this.debug) console.log(this.localName+'[behavior].focusedChanged() this.$.input:',this.$.input.$.input);
+      if (this.valueInput && this.valueInput !== '') {
+        this.$.input.$.input.selectionStart = 0;
+        this.$.input.$.input.selectionEnd = this.valueInput.length;
+      }
+    }
+  },
+
+  _onTapInput: function(event) {
+    if (this.debugKeys) console.log(this.localName+'[behavior]._onTapInput()');
+    this.toggleDropdown();
+
+//    event.preventDefault();
+//    return false;
+  },
+
+  /**
+   * Called on tap of an item in dropdown
+   */
+  _onTapMenu: function(evt) {
+    if (this.debugKeys) console.log(this.localName+'[behavior]._onTapMenu() _indexSelectedItem:'+this._indexSelectedItem+' selectedObj:',this._dataView[this._indexSelectedItem],'target:',evt.target,'value:',evt.target.value);
+    this.value = evt.target.value;
+    this.closeDropdown();
+  },
+
+  /**
+   * Open the dropdown menu
+   */
+  openDropdown: function() {
+    if (this.debugKeys) console.log(this.localName+'[behavior].openDropdown()');
+    this.$.dropdown.open();
+  },
+
+  /**
+   * Toggle the dropdown menu
+   */
+  toggleDropdown: function() {
+    if (this.debug) console.log(this.localName+'[behavior].toggleDropdown()');
+    this.$.dropdown.toggle();
+  },
+
+  /**
+   * Close the dropdown menu
+   */
+  closeDropdown: function() {
+    if (this.debug) console.log(this.localName+'[behavior].closeDropdown()');
+    this.$.dropdown.close();
+  },
+
+  /**
+   * Return true if the dropdown is open
+   * @return {boolean}
+   */
+  isDropdownOpened: function() {
+    return this.$.dropdown.opened;
+  },
+
+  /**
+   * Called on filter changed
+   */
+  _filterChanged: function(to, from) {
+    if (this.debug) console.log(this.localName+'[behavior]._filterChanged() to:',to);
+    this._dataChanged();
+  },
+  /**
+   * Called on filterValue changed
+   */
+  _filterValueChanged: function(to, from) {
+    if (this.debug) console.log(this.localName+'[behavior]._filterValueChanged() to:',to);
+    this._dataChanged();
+  },
+  /**
+   * Called on filter2 changed
+   */
+  _filter2Changed: function(to, from) {
+    if (this.debug) console.log(this.localName+'[behavior]._filter2Changed() to:',to);
+    this._dataChanged();
+  },
+  /**
+   * Called on filterValue2 changed
+   */
+  _filterValue2Changed: function(to, from) {
+    if (this.debug) console.log(this.localName+'[behavior]._filterValue2Changed() to:',to);
+    this._dataChanged();
+  },
+
+  /**
+   * Called on valueInput changed
+   */
+  _valueInputChanged: function(to, from) {
+    if (!this._isReady) return;
+    if (this.debug) console.log(this.localName+'[behavior]._valueInputChanged() to:'+to+' valueLabel:'+this.valueLabel+' value:'+this.value);
+    if (this.value && this.valueInput !== this.valueLabel) {
+      this.valueLabel = null;
+      this.value = null;
+    }
+    this._updateDataView();
+    this.fire('valueInputChanged', this.valueInput);
+  },
+
+  /**
+   * Called on valueLabel changed
+   */
+  _valueLabelChanged: function(to, from) {
+    if (this.debug) console.log(this.localName+'[behavior]._valueLabelChanged() to:',to,'from:',from);
+    if (this.value && this.valueLabel) {
+      if (this.debug) console.log(this.localName+'[behavior]._valueLabelChanged() ... AGGIORNO valueInput...');
+      this.valueInput = this.valueLabel;
+    }
+    else {
+      this.valueInput = null;
+    }
+    this.fire('valueLabelChanged', this.valueLabel);
+  },
+
+  /**
+   * Called on value changed
+   */
+  _valueChanged: function() {
+    if (this.debug) console.log(this.localName+'[behavior]._valueChanged() ***** to:',this.value,'data.length:',this.data.length);
+//    if (!this._isReady) return;
+    if (this.value) {
+      let attrForValue = this.attrForValue ? this.attrForValue : 'value';
+      let attrForLabel = this.attrForLabel ? this.attrForLabel : 'label';
+      if (this.debug) console.log(this.localName+'[behavior]._valueChanged() attrForValue:',attrForValue,'attrForLabel:',attrForLabel);
+      if (this.data === null) {
+        console.trace(this.localName+'[behavior]._valueChanged() this.data === null !!! this.value:',this.value,'valueLabel:',this.valueLabel,'valueInput:',this.valueInput);
+      }
+      else {
+        let find = this.data.find((element)=>{return element[attrForValue] === this.value;});
+        if (find) {
+          if (this.debug) console.log(this.localName+'[behavior]._valueChanged() TROVATO VALORE '+this.value+'... find:',find);
+          let data = this._getValueAndLabel4Array(find, attrForValue, attrForLabel);
+          this.valueLabel = data.label;
+          this.valueInput = data.label;
+        }
+        else {
+          if (this.debug) console.log(this.localName+'[behavior]._valueChanged() VALORE NON TROVATO:',this.value);
+        }
+      }
+      if (this.debug) console.log(this.localName+'[behavior]._valueChanged() valueInput:',this.valueInput);
+    }
+    else {
+      if (this.debug) console.log(this.localName+'[behavior]._valueChanged() valueInput:',this.valueInput,'valueLabel:',this.valueLabel);
+      if (this.valueInput === this.valueLabel) {
+        if (this.debug) console.log(this.localName+'[behavior]._valueChanged() !!!! RESET !!!!');
+        this.valueInput = null;
+        this.valueLabel = null;
+      }
+    }
+    this.fire('valueChanged', this.value);
+  },
+
+  /**
+   * Called on data changed
+   */
+  _dataChanged: function() {
+    if (!this._isReady) return;
+    let newArr = [];
+    if (this.data) {
+      if (this.debug) console.log(this.localName+'[behavior]._dataChanged() data.length:',this.data.length);
+      let attrForValue = this.attrForValue ? this.attrForValue : 'value';
+      let attrForLabel = this.attrForLabel ? this.attrForLabel : 'label';
+      if (this.debug) console.log(this.localName+'[behavior]._dataChanged() attrForValue:',attrForValue,'attrForLabel:',attrForLabel,'filter['+(typeof this.filter)+']:',this.filter,'filterValue['+(typeof this.filterValue)+']:',this.filterValue,'filter2['+(typeof this.filter2)+']:',this.filter2,'filterValue2['+(typeof this.filterValue2)+']:',this.filterValue2);
+      for (let i=0; i<this.data.length; i++) {
+        // Filtro esterno "filter" e "filterValue"
+        if (this.filter && typeof this.filterValue !== 'undefined' && this.filterValue !== null) {
+          if (this.debugView) console.log(this.localName+'[behavior]._dataChanged() ************ filter:'+this.filter+' filterValue:',this.filterValue,'dataFilterValue:',this.data[i][this.filter],'OK?',(this.data[i][this.filter] === this.filterValue),'data:',this.data[i]);
+          if (this.data[i][this.filter] === this.filterValue || (this.data[i][this.filter] === true && this.filterValue === '')) {
+            if (this.filter2 && typeof this.filterValue2 !== 'undefined' && this.filterValue2 !== null) {
+              if (this.debugView) console.log(this.localName+'[behavior]._dataChanged() ********************** filter2:'+this.filter2+' filterValue2:',this.filterValue2,'dataFilterValue:',this.data[i][this.filter2],'OK?',(this.data[i][this.filter2] === this.filterValue2),'data:',this.data[i]);
+              if (this.data[i][this.filter2] === this.filterValue2 || (this.data[i][this.filter2] === true && this.filterValue2 === '')) {
+                newArr.push(this._getValueAndLabel4Array(this.data[i], attrForValue, attrForLabel));
+              }
+            }
+            else {
+              newArr.push(this._getValueAndLabel4Array(this.data[i], attrForValue, attrForLabel));
+            }
+          }
+        }
+        else {
+          newArr.push(this._getValueAndLabel4Array(this.data[i], attrForValue, attrForLabel));
+        }
+      }
+      // Controllo se è presente un valore e se il valore è compreso nei nuovi dati se è cambiato il filtro
+      if (this.value && this.filter && typeof this.filterValue !== 'undefined' && this.filterValue !== null) {
+        if (this.debugView) console.log(this.localName+'[behavior]._dataChanged() --> --> --> value:'+this.value+' filter:',this.filter,'filterValue:',this.filterValue);
+        let found = newArr.find((element)=>{return element.value === this.value;});
+        if (!found) {
+          if (this.debugView) console.log(this.localName+'[behavior]._dataChanged() --> --> --> NOT FOUND !!!');
+          this.value = null;
+        }
+      }
+    }
+    else {
+      console.warn(this.localName+'[behavior]._dataChanged() NO DATA RETURNED!',this.data);
+    }
+    this._dataDropdown = newArr;
+    if (this.debug) console.log(this.localName+'[behavior]._dataChanged() _dataDropdown.length:',this._dataDropdown.length);
+    if (this.debug) console.log(this.localName+'[behavior]._dataChanged() value:',this.value,'valueInput:',this.valueInput);
+    if (this.value && !this.valueInput) this._valueChanged();
+    this._updateDataView();
+  },
+
+  _getValueAndLabel4Array: function(data, attrForValue, attrForLabel) {
+//      if (this.debug) console.log(this.localName+'[behavior]._getValueAndLabel4Array() typeof attrForLabel',(typeof attrForLabel));
+    if (Util.isArray(attrForLabel)) {
+      let label = '';
+      let spacer = ' ~ ';
+      for (let i=0; i<attrForLabel.length; i++) {
+        if (typeof attrForLabel[i] === 'object') {
+          for (let key in attrForLabel[i]) {
+            if (Util.isObject(data[key])) {
+              label += spacer + data[key][attrForLabel[i][key]];
+            }
+            else {
+              switch (attrForLabel[i][key]) {
+                case 'date':
+                  label += spacer + Util.getDateString(data[key]);
+                  break;
+                default:
+                  label += spacer + data[key];
+                  break;
+              }
+            }
+          }
+        }
+        else {
+          label += spacer + data[attrForLabel[i]];
+        }
+      }
+      if (attrForLabel.length > 0) label = label.substr(3);
+      return {
+        value: data[attrForValue],
+        label: label
+      };
+    }
+    else {
+      return {
+        value: data[attrForValue],
+        label: data[attrForLabel]
+      };
+    }
+  },
+
+  /**
+   * Update the data show in the dropdown
+   */
+  _updateDataView: function() {
+    if (this.debugView) console.log(this.localName+'[behavior]._updateDataView() valueInput:',this.valueInput,'valueLabel:',this.valueLabel,'value:',this.value);
+    if (!this._dataDropdown) return;
+    let newArr = this._dataDropdown.slice(0);
+//    if (this.debugView) console.log(this.localName+'[behavior]._updateDataView() newArr.length:',newArr.length);
+    if (!this.required && !this.valueInput) {
+      if (this.debugView) console.log(this.localName+'[behavior]._updateDataView() NON required. Aggiungo null');
+      newArr.unshift({value:null,label:null});
+    }
+    if (!this.value && this.valueInput && this.valueInput !== '') {
+      if (this.debugView) console.log(this.localName+'[behavior]._updateDataView() filtro per valueInput:',this.valueInput);
+      // Filtro l'array
+      // TODO: se this.valueInput ha un carattere particolare (esempio '*') bisogna aggiungere la barra ('\*')
+      let regExp = new RegExp(this.valueInput, 'i');
+      newArr = newArr.filter(function(obj) { return regExp.test(obj.label); });
+      if (newArr.length>1) {
+        // Ordino l'array
+        regExp = new RegExp('^'+this.valueInput, 'i');
+        newArr = newArr.sort(function(a,b) { return b.label.search(regExp) - a.label.search(regExp); });
+      }
+      else if (newArr.length === 1 && newArr[0].value && this.valueInput == newArr[0].label) {
+        this.value = newArr[0].value;
+      }
+    }
+    if (this.debugView) console.log(this.localName+'[behavior]._updateDataView() newArr.length:',newArr.length);
+    if (newArr.length > this.maxViewLength) {
+      newArr = newArr.slice(0,this.maxViewLength);
+      newArr.push({value:null,label:'...'});
+    }
+
+//    if (this.debugView) console.log(this.localName+'[behavior]._updateDataView() ...newArr.length:',newArr.length);
+    this._dataView = newArr;
+    if (this.debugView) console.log(this.localName+'[behavior]._updateDataView() ..._dataView.length:',this._dataView.length);
+//      this._indexSelectedItem = 0;
+    if (this.autoValidate) {
+      if (this.debugView) console.log(this.localName+'[behavior]._updateDataView() ... validate()');
+      this.$.input.validate();
+    }
+  },
+
+  /**
+   * Validates the input element and sets an error style if needed.
+   *
+   * @return {boolean}
+   */
+  validate: function(value) {
+    if (this.debug) console.log(this.localName+'[behavior].validate() ...');
+    if (this.debug) console.log(this.localName+'[behavior].validate() model='+this.model+' required='+this.required+' value:',value,'this.value:',this.value,'this.valueLabel:',this.valueLabel,'this.valueInput:',this.valueInput);
+    if ((this.required && !this.value) || (this.valueInput && this.valueLabel !== this.valueInput)) {
+      if (this.debug) console.log(this.localName+'[behavior].validate() NOT NULL autoValidate='+this.autoValidate+' ');
+//        this.errorMessage = 'Seleziona un valore';
+      return false;
+    }
+    return true;
+  },
+
+  attached: function() {
+    if (this.debug) console.log(this.localName+'[behavior].attached() §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§');
+    this._isReady = true;
+    this._dataChanged();
+  },
+
+  ready: function() {
+    if (this.debug) {
+      this.debugView = true;
+      this.debugKeys = true;
+    }
+    let ironInput = Polymer.dom(this.$.input.root).querySelector('input');
+//    if (this.debug) console.log('§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§ ironInput:',ironInput);
+//    if (this.debug) console.log('§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§ ironInput.validate:',ironInput.validate);
+    if (this.debug) console.log(this.localName+'[behavior].ready() §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§ attrForValue:',this.attrForValue,'attrForLabel:',this.attrForLabel);
+//    this._dataChanged();
+    ironInput._getValidity = this.validate.bind(this);
+    if (this.required) this.autoValidate = true;
+    if (this.autoValidate) {
+      if (this.debug) console.log(this.localName+'[behavior].ready() ... validate()');
+      this.$.input.validate();
+    }
+
+    // Reimposto la funzione _resetTabindices in modo che tutti i tabindex siano -1
+    this.$.menu._resetTabindices = function() {
+      this.items.forEach(function(item) {
+        item.setAttribute('tabindex', '-1');
+      }, this);
+    };
+    this.$.menu._focusedItemChanged = function(focusedItem, old) {
+      if (this.debug) console.log(this.localName+'[behavior]._focusedItemChanged() NEW ****************** focusedItem:',focusedItem);
+//      old && old.setAttribute('tabindex', '-1');
+//      if (focusedItem) {
+//        focusedItem.setAttribute('tabindex', '0');
+//        focusedItem.focus();
+//      }
+    };
+
+  }
+
+  /**
+   * Emesso in modifica value.
+   *
+   * @event valueChanged
+   */
+
+   /**
+    * Emesso in modifica valueLabel.
+    *
+    * @event valueLabelChanged
+    */
+
+    /**
+     * Emesso in modifica valueInput.
+     *
+     * @event valueInputChanged
+     */
+};
+
+/** @polymerBehavior */
+Polymer.PaperSelectBehavior = [
+  Polymer.IronFormElementBehavior,
+  Polymer.IronControlState,
+  Polymer.IronValidatableBehavior,
+  Polymer.IronA11yKeysBehavior,
+//      Polymer.IronValidatorBehavior
+  Polymer.PaperSelectBehaviorImpl
+];
+</script>

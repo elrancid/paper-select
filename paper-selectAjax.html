@@ -1,0 +1,342 @@
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-ajax/iron-ajax.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../iron-dropdown/iron-dropdown.html">
+<link rel="import" href="../paper-material/paper-material.html">
+<link rel="import" href="../paper-menu/paper-menu.html">
+<link rel="import" href="../paper-item/paper-item.html">
+
+<link rel="import" href="paper-select-behavior.html">
+
+<!--
+Material design: [Text fields](https://www.google.com/design/spec/components/text-fields.html)
+
+`<paper-select>` is similar to a native browser select element with a interactive filter in the input field.
+
+See `Polymer.PaperSelectBehavior` for more API docs.
+
+### Styling
+
+See `Polymer.PaperSelectContainer` for a list of custom properties used to
+style this element.
+
+@group Paper Elements
+@element paper-select
+@hero hero.svg
+@demo demo/index.html
+-->
+
+<dom-module id="paper-selectAjax">
+<template>
+  <style>
+  :host {
+    display: block;
+  }
+  #dropdown-container {
+    position: relative;
+    z-index: 102;
+    top: -7px;
+    outline: none;
+  }
+  iron-dropdown[vertical-align="top"] paper-material {
+    margin-bottom: 10px;
+  }
+  iron-dropdown[vertical-align="top"] paper-material paper-material {
+    margin-bottom: 0;
+  }
+  paper-menu {
+    padding: 0;
+  }
+  paper-item {
+    height: 28px;
+  }
+  paper-material paper-menu paper-item {
+    font-size: 14px;
+    min-height: 0;
+    line-height: 2em;
+  }
+  :host paper-item {
+    white-space: nowrap;
+  }
+  </style>
+<!--
+auto
+-->
+  <iron-ajax
+    id="ajax"
+    url="[[url]]"
+    params="[[_params]]"
+    method="GET"
+    handle-as="json"
+    on-request="onRequest"
+    on-response="onResponse"
+    on-error="onError"
+    with-credentials="true">
+  </iron-ajax>
+  <paper-input
+    id="input"
+    debug="[[debug]]"
+    on-focus="_onInputFocus"
+    on-tap="_onTapInput"
+    label="[[label]]"
+    no-label-float="[[noLabelFloat]]"
+    disabled="[[disabled]]"
+    required="[[required]]"
+    auto-validate="[[autoValidate]]"
+    error-message="Seleziona un valore"
+    value="{{valueInput}}">
+<!--
+on-blur="onInputBlur"
+on-change="onInputChanged"
+<iron-icon icon="arrow-drop-down" suffix on-tap="toggleDropdown"></iron-icon>
+-->
+    <iron-icon icon="arrow-drop-down" suffix></iron-icon>
+  </paper-input>
+  <div id="dropdown-container">
+    <iron-dropdown
+      id="dropdown"
+      horizontal-align="left"
+      horizontal-offset="0"
+      vertical-align="top"
+      vertical-offset="5"
+      no-auto-focus>
+      <paper-material id="menuContainer" elevation="1" class="dropdown-content">
+        <paper-menu id="menu" selected="{{_indexSelectedItem}}" on-tap="_onTapMenu">
+          <template is="dom-repeat" items="[[_dataView]]" as="item">
+            <paper-item value="[[item.value]]">[[item.label]]</paper-item>
+          </template>
+        </paper-menu>
+      <paper-material>
+    </iron-dropdown>
+  </div>
+</template>
+<script>
+Polymer({
+  is: 'paper-selectAjax',
+
+  behaviors: [
+    Polymer.PaperSelectBehavior
+  ],
+
+  properties: {
+    /**
+     * The URL where to request the data to put in dropdown
+     */
+    url: {
+      type: String
+    },
+
+    /**
+     * Params used in URL
+     */
+    _params: {
+      type: Object,
+      value: {}
+    },
+
+    /**
+     * True while performing ajax request.
+     */
+    loading: {
+      type: Boolean,
+      value: false,
+      notify: true
+    },
+
+    /**
+     * The sort param to send to URL
+     */
+    sortUrl: {
+      type: String,
+      observer: 'urlParamsChanged'
+    },
+    /**
+     * The where param to send to URL
+     */
+    whereUrl: {
+      type: Object,
+      observer: 'urlParamsChanged'
+    },
+
+    _findValue: {
+      type: Boolean,
+      value: false
+    }
+
+  },
+
+  urlParamsChanged: function() {
+    if (this.debug) console.log(this.localName+'.urlParamsChanged() **************** sortUrl:',this.sortUrl,'whereUrl:',this.whereUrl,'maxViewLength:',this.maxViewLength);
+    let params = {
+      limit: this.maxViewLength
+    };
+    if (this.sortUrl) params.sort = this.sortUrl;
+    if (this.whereUrl && this.valueInput && !this.value) {
+//      params.search = this.valueInput;
+      if (this.debug) console.log(this.localName+'.urlParamsChanged() ********************* whereUrl:',JSON.stringify(this.whereUrl));
+      params.where = Util.cloneObject(this.whereUrl);
+      if (this.debug) console.log(this.localName+'.urlParamsChanged() ********************* where:',params.where);
+      this._applyValue2WhereObjectRecursive(params.where);
+      if (this.debug) console.log(this.localName+'.urlParamsChanged() ********************* where:',JSON.stringify(params.where));
+    }
+    this._params = Util.encodeUrlParams(params);
+    if (this.debug) console.log(this.localName+'.urlParamsChanged() ********************* _params:',this._params);
+  },
+
+  generateRequest: function() {
+    if (this.debug) console.log(this.localName+'.generateRequest() url:',this.url,'_params:',this._params);
+    if (this.url) this.$.ajax.generateRequest();
+  },
+
+  onRequest: function(request) {
+    if (this.debug) console.log(this.localName+'.onRequest() request:',request);
+    this.loading = true;
+  },
+
+  onResponse: function(event, request) {
+    if (this.debug) console.log(this.localName+'.onResponse() event:',event);
+    if (this.debug) console.log(this.localName+'.onResponse() request:',request);
+    if (this.debug) console.log(this.localName+'.onResponse() response:',request.response);
+    this.loading = false;
+    if (!this._findValue) {
+      this.data = request.response;
+    }
+    else {
+      if (request.response[0]) {
+        if (this.debug) console.log(this.localName+'.onResponse() (1) data:',request.response[0]);
+        let attrForValue = this.attrForValue ? this.attrForValue : 'value';
+        let attrForLabel = this.attrForLabel ? this.attrForLabel : 'label';
+        let data = this._getValueAndLabel4Array(request.response[0], attrForValue, attrForLabel)
+        if (this.debug) console.log(this.localName+'.onResponse() (2) data:',data);
+        this.valueLabel = data.label;
+        this.valueInput = data.label;
+      }
+      else {
+        console.warn(this.localName+'.onResponse() data not found for value:',this.value);
+      }
+      this.urlParamsChanged();
+      this._findValue = false;
+    }
+  },
+
+  onError: function(error) {
+    this.loading = false;
+    if (this.debug) console.log(this.localName+'.onError() error:',error);
+  },
+
+  /**
+   * Called on data changed
+   */
+  _dataChanged: function() {
+    if (!this._isReady) return;
+    if (this.debug) console.log(this.localName+'._dataChanged()... START');
+//    if (!this._findValue) {
+      Polymer.PaperSelectBehavior[4]._dataChanged.call(this);
+      if (this.debug) console.log(this.localName+'._dataChanged()......... value:',this.value,'valueInput['+(typeof this.valueInput)+']: "'+this.valueInput+'"');
+      if (this.value && this.valueInput === '') {
+        // Il valore attuale non è stato trovato nei dati appena arrivati. Cerco direttamente il valore.
+        this._findValue = true;
+        let where = {};
+        where[this.attrForValue] = this.value;
+        if (this.debug) console.log(this.localName+'._dataChanged()......... CERCO IL VALORE value:',this.value,'where;',where);
+        this._params = Util.encodeUrlParams({where});
+        this.generateRequest();
+      }
+//    }
+//    else {
+//      if (this.debug) console.log(this.localName+'._dataChanged() data:',this.data);
+//      this._findValue = false;
+//      this.urlParamsChanged();
+//    }
+    if (this.debug) console.log(this.localName+'._dataChanged()... END');
+  },
+
+  /**
+   * Called on valueInput changed
+   */
+  _valueInputChanged: function(to, from) {
+    if (!this._isReady || this._findValue) return;
+    if (this.debug) console.log(this.localName+'._valueInputChanged() ******* valueInput:'+this.valueInput+' valueLabel:'+this.valueLabel+' value:'+this.value);
+
+    if (this.value && this.valueInput !== this.valueLabel) {
+      this.value = null;
+      this.valueLabel = null;
+    }
+    this.urlParamsChanged();
+    this.generateRequest();
+//    this._updateDataView();
+    this.fire('valueInputChanged', this.valueInput);
+  },
+
+  _applyValue2WhereObjectRecursive: function(obj) {
+    if (Util.isObject(obj)) {
+      for (let key in obj) {
+        if (!obj.hasOwnProperty(key)) continue;
+        if (obj[key] === '') obj[key] = this.valueInput;
+        else this._applyValue2WhereObjectRecursive(obj[key]);
+      }
+    }
+    else if (Util.isArray(obj)) {
+      obj.forEach((element) => {
+        this._applyValue2WhereObjectRecursive(element);
+      });
+    }
+  },
+
+  /**
+   * Update the data show in the dropdown
+   */
+  _updateDataView: function() {
+    if (this.debugView) console.log(this.localName+'._updateDataView() valueInput:',this.valueInput,'valueLabel:',this.valueLabel,'value:',this.value);
+    if (!this._dataDropdown) return;
+    let newArr = this._dataDropdown.slice(0);
+//    if (this.debugView) console.log(this.localName+'._updateDataView() newArr.length:',newArr.length);
+    if (!this.required && !this.valueInput) {
+      if (this.debugView) console.log(this.localName+'._updateDataView() NON required. Aggiungo null');
+      newArr.unshift({value:null,label:null});
+    }
+    if (!this.value && this.valueInput && this.valueInput !== '') {
+      if (this.debugView) console.log(this.localName+'._updateDataView() ********** filtro per valueInput:',this.valueInput);
+/*
+      // Filtro l'array
+      // TODO: se this.valueInput ha un carattere particolare (esempio '*') bisogna aggiungere la barra ('\*')
+      let regExp = new RegExp(this.valueInput, 'i');
+      newArr = newArr.filter(function(obj) { return regExp.test(obj.label); });
+      if (newArr.length>1) {
+        // Ordino l'array
+        regExp = new RegExp('^'+this.valueInput, 'i');
+        newArr = newArr.sort(function(a,b) { return b.label.search(regExp) - a.label.search(regExp); });
+      }
+      else if (newArr.length === 1 && newArr[0].value && this.valueInput == newArr[0].label) {
+        this.value = newArr[0].value;
+      }
+*/
+    }
+    if (this.debugView) console.log(this.localName+'._updateDataView() newArr.length:',newArr.length);
+    if (newArr.length > this.maxViewLength) {
+      newArr = newArr.slice(0,this.maxViewLength);
+      newArr.push({value:null,label:'...'});
+    }
+
+//    if (this.debugView) console.log(this.localName+'._updateDataView() ...newArr.length:',newArr.length);
+    this._dataView = newArr;
+    if (this.debugView) console.log(this.localName+'._updateDataView() ..._dataView.length:',this._dataView.length);
+//      this._indexSelectedItem = 0;
+    if (this.autoValidate) {
+      if (this.debugView) console.log(this.localName+'._updateDataView() ... validate()');
+      this.$.input.validate();
+    }
+  },
+
+});
+</script>
+</dom-module>
