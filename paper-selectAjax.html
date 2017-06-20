@@ -132,7 +132,8 @@ Polymer({
      * The URL where to request the data to put in dropdown
      */
     url: {
-      type: String
+      type: String,
+      observer: 'urlChanged'
     },
 
     /**
@@ -167,11 +168,19 @@ Polymer({
       observer: 'urlParamsChanged'
     },
 
+    _findingValue: {
+      type: Boolean,
+      value: false
+    },
     _findValue: {
       type: Boolean,
       value: false
     }
 
+  },
+
+  urlChanged: function(to, from) {
+    if (this.debug) console.log(this.localName+'.urlChanged() **************** to:',to,'from:',from);
   },
 
   urlParamsChanged: function() {
@@ -195,11 +204,11 @@ Polymer({
   generateRequest: function() {
     if (this.debug) console.log(this.localName+'.generateRequest() url:',this.url,'_params:',this._params);
     if (this.url) this.$.ajax.generateRequest();
+    this.loading = true;
   },
 
   onRequest: function(request) {
     if (this.debug) console.log(this.localName+'.onRequest() request:',request);
-    this.loading = true;
   },
 
   onResponse: function(event, request) {
@@ -207,8 +216,12 @@ Polymer({
     if (this.debug) console.log(this.localName+'.onResponse() request:',request);
     if (this.debug) console.log(this.localName+'.onResponse() response:',request.response);
     this.loading = false;
-    if (!this._findValue) {
+    if (!this._findingValue) {
       this.data = request.response;
+      if (this._findValue) {
+        if (this.debug) console.log(this.localName+'.onResponse() cerco il valore...');
+        this._valueNotFound();
+      }
     }
     else {
       if (request.response[0]) {
@@ -224,6 +237,7 @@ Polymer({
         console.warn(this.localName+'.onResponse() data not found for value:',this.value);
       }
       this.urlParamsChanged();
+      this._findingValue = false;
       this._findValue = false;
     }
   },
@@ -236,35 +250,62 @@ Polymer({
   /**
    * Called on data changed
    */
-  _dataChanged: function() {
+  _dataChanged: function(to, from) {
+    if (this.debug) console.log(this.localName+'._dataChanged() to:',to,'from:',from);
     if (!this._isReady) return;
-    if (this.debug) console.log(this.localName+'._dataChanged()... START');
-//    if (!this._findValue) {
-      Polymer.PaperSelectBehavior[4]._dataChanged.call(this);
-      if (this.debug) console.log(this.localName+'._dataChanged()......... value:',this.value,'valueInput['+(typeof this.valueInput)+']: "'+this.valueInput+'"');
-      if (this.value && this.valueInput === '') {
-        // Il valore attuale non è stato trovato nei dati appena arrivati. Cerco direttamente il valore.
-        this._findValue = true;
-        let where = {};
-        where[this.attrForValue] = this.value;
-        if (this.debug) console.log(this.localName+'._dataChanged()......... CERCO IL VALORE value:',this.value,'where;',where);
-        this._params = Util.encodeUrlParams({where});
-        this.generateRequest();
-      }
+    if (this.debug) console.log(this.localName+'._dataChanged()... START data:',this.data,'data.length:',this.data.length);
+
+    Polymer.PaperSelectBehavior[4]._dataChanged.call(this);
+    if (this.debug) console.log(this.localName+'._dataChanged()......... value:',this.value,'valueInput['+(typeof this.valueInput)+']: "'+this.valueInput+'"');
+    if (this.value && this.valueInput === '') {
+      // Il valore attuale non è stato trovato nei dati appena arrivati. Cerco direttamente il valore.
+      if (this.debug) console.log(this.localName+'._dataChanged()......... Il valore attuale non è stato trovato nei dati appena arrivati. Cerco direttamente il valore ....');
+      this._valueNotFound();
+    }
+
+//    if (!this._findingValue) {
 //    }
 //    else {
 //      if (this.debug) console.log(this.localName+'._dataChanged() data:',this.data);
-//      this._findValue = false;
+//      this._findingValue = false;
 //      this.urlParamsChanged();
 //    }
+
     if (this.debug) console.log(this.localName+'._dataChanged()... END');
+  },
+
+  /**
+   * Find the value not found in data
+   */
+  _valueNotFound: function() {
+    if (this.debug) console.log(this.localName+'._valueNotFound() loading:',this.loading,'_isReady:',this._isReady);
+    if (!this._isReady) return;
+    if (!this.loading) {
+      if (this.debug) console.log(this.localName+'._valueNotFound() metto la ricerca in async...');
+      this.async(() => {
+        if (!this._findingValue) {
+          if (this.debug) console.log(this.localName+'._valueNotFound()');
+          this._findingValue = true;
+          let where = {};
+          where[this.attrForValue] = this.value;
+          if (this.debug) console.log(this.localName+'._valueNotFound()......... CERCO IL VALORE value:',this.value,'where;',where);
+          this._params = Util.encodeUrlParams({where});
+          this.generateRequest();
+        }
+      });
+    }
+    else {
+      // un'altra ricerca è in atto, attendo la fine
+      if (this.debug) console.log(this.localName+'._valueNotFound() un\'altra ricerca è in atto, attendo la fine');
+      this._findValue = true;
+    }
   },
 
   /**
    * Called on valueInput changed
    */
   _valueInputChanged: function(to, from) {
-    if (!this._isReady || this._findValue) return;
+    if (!this._isReady || this._findingValue) return;
     if (this.debug) console.log(this.localName+'._valueInputChanged() ******* valueInput:'+this.valueInput+' valueLabel:'+this.valueLabel+' value:'+this.value);
 
     if (this.value && this.valueInput !== this.valueLabel) {
