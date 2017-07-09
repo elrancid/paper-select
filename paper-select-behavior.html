@@ -465,7 +465,7 @@ Polymer.PaperSelectBehaviorImpl = {
         console.trace(this.localName+'[behavior]._valueChanged() this.data === null !!! this.value:',this.value,'valueLabel:',this.valueLabel,'valueInput:',this.valueInput);
       }
       else {
-        let find = this.data.find((element) => { return element[attrForValue] === this.value; });
+        let find = this.data.find((element) => { return element[attrForValue] == this.value; });
         if (find) {
           if (this.debug) console.log(this.localName+'[behavior]._valueChanged() TROVATO VALORE '+this.value+'... find:',find);
           let data = this._getValueAndLabel4Array(find, attrForValue, attrForLabel);
@@ -473,7 +473,8 @@ Polymer.PaperSelectBehaviorImpl = {
           this.valueInput = data.label;
         }
         else {
-          if (this.debug) console.log(this.localName+'[behavior]._valueChanged() VALORE NON TROVATO:',this.value,'valueInput:',this.valueInput,'valueLabel:',this.valueLabel);
+          if (this.debug) console.log(this.localName+'[behavior]._valueChanged() VALORE NON TROVATO['+(typeof this.value)+']:',this.value,'valueInput:',this.valueInput,'valueLabel:',this.valueLabel);
+          if (this.debug) console.log(this.localName+'[behavior]._valueChanged() RICERCATO IN:',this.data);
           this._valueNotFound();
         }
       }
